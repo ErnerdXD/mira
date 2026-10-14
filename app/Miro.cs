@@ -148,7 +148,23 @@ namespace Miro
             // reliably requires elevation, and guessing wrong hides a working
             // setup behind an install button. It only appears if a launch fails.
             _install.Visible = false;
-            SetStatus("Ready. Click Start receiver.", false);
+
+            // Detect a sandboxed/restricted launch, where the process cannot
+            // create child processes. Everything Miro does (COM activation of
+            // the receiver, launching it) fails there, with confusing errors.
+            // Better to say so up front than to fail on the button press.
+            string spawn = SpawnTest();
+            WriteDiagnostic("startup (version " + Program.Version + ")");
+
+            if (spawn.IndexOf("children WORK", StringComparison.Ordinal) < 0)
+            {
+                SetStatus("Restricted launch detected - close Miro and start it " +
+                          "from File Explorer, not from a sandboxed shell.", false);
+            }
+            else
+            {
+                SetStatus("Ready. Click Start receiver.", false);
+            }
 
             _poll.Interval = 1500;
             _poll.Tick += (s, e) => RefreshState();
@@ -321,6 +337,127 @@ namespace Miro
                 SetStatus("Receiver is running. Now connect from your phone.", true);
         }
 
+        /// <summary>
+        /// Records how Miro was started and whether it can create a working
+        /// child process at all.
+        ///
+        /// The Miracast/UWP activation APIs need the interactive window station
+        /// and desktop. A process started by an agent, service or harness can
+        /// end up elsewhere, which produces exactly the symptoms seen here:
+        /// E_ACCESSDENIED from COM activation plus 0xc0000142 in children.
+        /// </summary>
+        private static void WriteDiagnostic(string note)
+        {
+            try
+            {
+                string dir = AppDomain.CurrentDomain.BaseDirectory;
+                string path = System.IO.Path.Combine(dir, "miro-diagnostic.txt");
+
+                var sb = new System.Text.StringBuilder();
+                sb.AppendLine("=== " + DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss") + " ===");
+                sb.AppendLine(note);
+                sb.AppendLine(DescribeContext());
+                sb.AppendLine("Parent     : " + DescribeParent());
+                sb.AppendLine("Spawn test : " + SpawnTest());
+                sb.AppendLine("Exe        : " + Application.ExecutablePath);
+                sb.AppendLine("SystemRoot : " + (Environment.GetEnvironmentVariable("SystemRoot") ?? "(null)"));
+                sb.AppendLine("Temp       : " + System.IO.Path.GetTempPath());
+
+                System.IO.File.AppendAllText(path, sb.ToString() + Environment.NewLine);
+            }
+            catch { /* diagnostics must never break the app */ }
+        }
+
+        private static string DescribeParent()
+        {
+            try
+            {
+                int me = Process.GetCurrentProcess().Id;
+                using (var q = new System.Management.ManagementObjectSearcher(
+                    "SELECT ParentProcessId FROM Win32_Process WHERE ProcessId=" + me))
+                {
+                    foreach (System.Management.ManagementBaseObject mo in q.Get())
+                    {
+                        int parent = Convert.ToInt32(mo["ParentProcessId"]);
+                        try
+                        {
+                            using (var p = Process.GetProcessById(parent))
+                                return p.ProcessName + " (pid " + parent + ")";
+                        }
+                        catch { return "pid " + parent + " (name unavailable)"; }
+                    }
+                }
+            }
+            catch (Exception ex) { return "(lookup failed: " + ex.Message + ")"; }
+
+            return "(not found)";
+        }
+
+        /// <summary>
+        /// Runs a tiny child process and checks it actually produced output.
+        /// Process.Start succeeding is not proof of anything: the child can be
+        /// created and then die during initialisation.
+        /// </summary>
+        private static string SpawnTest()
+        {
+            string probe = System.IO.Path.Combine(
+                System.IO.Path.GetTempPath(), "miro-spawn-probe.txt");
+
+            try { if (System.IO.File.Exists(probe)) System.IO.File.Delete(probe); }
+            catch { }
+
+            try
+            {
+                var psi = new ProcessStartInfo("cmd.exe",
+                    "/c echo probe > \"" + probe + "\"")
+                {
+                    UseShellExecute = false,
+                    CreateNoWindow = true
+                };
+
+                using (var p = Process.Start(psi))
+                {
+                    if (!p.WaitForExit(5000)) return "child hung (no exit in 5s)";
+                    bool wrote = System.IO.File.Exists(probe);
+                    return "cmd.exe exit=" + p.ExitCode + " wroteFile=" + wrote +
+                           (wrote ? " -> children WORK" : " -> child died/failed");
+                }
+            }
+            catch (Exception ex)
+            {
+                return "Process.Start threw: " + ex.Message;
+            }
+        }
+
+        /// <summary>
+        /// Describes the security context Miro is running in. The Miracast/UWP
+        /// activation APIs are refused for elevated and restricted tokens, so
+        /// this is the first thing worth knowing when a launch fails.
+        /// </summary>
+        private static string DescribeContext()
+        {
+            var sb = new System.Text.StringBuilder();
+            try
+            {
+                var id = System.Security.Principal.WindowsIdentity.GetCurrent();
+                sb.AppendLine("User      : " + id.Name);
+
+                var principal = new System.Security.Principal.WindowsPrincipal(id);
+                bool admin = principal.IsInRole(
+                    System.Security.Principal.WindowsBuiltInRole.Administrator);
+                sb.AppendLine("Elevated  : " + admin);
+            }
+            catch (Exception ex)
+            {
+                sb.AppendLine("User      : (unavailable: " + ex.Message + ")");
+            }
+
+            sb.AppendLine("64-bit    : " + Environment.Is64BitProcess);
+            try { sb.AppendLine("Session   : " + Process.GetCurrentProcess().SessionId); }
+            catch { }
+            return sb.ToString().TrimEnd();
+        }
+
         private static bool ProcessAlive(uint pid)
         {
             if (pid == 0) return false;
@@ -339,9 +476,18 @@ namespace Miro
 
         private static bool ReceiverRunning()
         {
+            // Process objects hold native handles and MUST be disposed. This runs
+            // on a 1.5s timer, so leaking them exhausts the process handle table
+            // and the desktop heap -- which makes CreateProcess fail for children
+            // with 0xc0000142 (STATUS_DLL_INIT_FAILED), exactly the symptom this
+            // was written to diagnose.
+            Process[] all;
+            try { all = Process.GetProcesses(); }
+            catch { return false; }
+
             try
             {
-                foreach (var p in Process.GetProcesses())
+                foreach (var p in all)
                 {
                     try
                     {
@@ -358,7 +504,13 @@ namespace Miro
                     catch { }
                 }
             }
-            catch { }
+            finally
+            {
+                foreach (var p in all)
+                {
+                    try { p.Dispose(); } catch { }
+                }
+            }
             return false;
         }
 
@@ -373,24 +525,43 @@ namespace Miro
             SetStatus("Starting receiver...", false);
 
             // Primary: COM activation of the packaged app. No explorer involved.
-            string error;
-            uint pid = UwpLauncher.Activate(Program.ReceiverAumid, out error);
+            string comError;
+            uint pid = UwpLauncher.Activate(Program.ReceiverAumid, out comError);
 
-            // Fallback: shell activation. Works on most machines but can fail
-            // with 0xc0000142 from unusual process contexts.
+            // Fallback: shell activation. Keep comError for the report below --
+            // if this route also fails, knowing WHY the COM route failed is the
+            // useful part.
+            string shellError = null;
             if (pid == 0)
             {
+                // Fallback 1: hand the shell: URI directly to ShellExecuteEx.
+                // This asks the shell to resolve the moniker instead of spawning
+                // our own explorer.exe, which is what dies with 0xc0000142.
                 try
                 {
-                    Process.Start(new ProcessStartInfo(
-                        "explorer.exe",
-                        "shell:appsFolder\\" + Program.ReceiverAumid)
-                    { UseShellExecute = true });
-                    error = null;
+                    Process.Start(new ProcessStartInfo
+                    {
+                        FileName = "shell:appsFolder\\" + Program.ReceiverAumid,
+                        UseShellExecute = true
+                    });
                 }
-                catch (Exception ex)
+                catch (Exception ex1)
                 {
-                    error = ex.Message;
+                    shellError = "shell uri: " + ex1.Message;
+
+                    // Fallback 2: explicit explorer.exe.
+                    try
+                    {
+                        Process.Start(new ProcessStartInfo(
+                            "explorer.exe",
+                            "shell:appsFolder\\" + Program.ReceiverAumid)
+                        { UseShellExecute = true });
+                        shellError = null;
+                    }
+                    catch (Exception ex2)
+                    {
+                        shellError += " / explorer: " + ex2.Message;
+                    }
                 }
             }
 
@@ -406,14 +577,31 @@ namespace Miro
                 if (ReceiverRunning() || ProcessAlive(_launchedPid))
                 {
                     SetStatus("Receiver is running. Now connect from your phone.", true);
+                    return;
                 }
-                else
-                {
-                    SetStatus(error == null
-                        ? "Could not start the receiver feature."
-                        : "Could not start receiver: " + error, false);
-                    _install.Visible = true;
-                }
+
+                string why = comError ?? "unknown";
+                if (shellError != null) why += " / shell: " + shellError;
+                SetStatus("Receiver did not start", false);
+                _install.Visible = true;
+
+                WriteDiagnostic(
+                    "launch FAILED" + Environment.NewLine +
+                    "  comError   = " + (comError ?? "(none)") + Environment.NewLine +
+                    "  shellError = " + (shellError ?? "(none)") + Environment.NewLine +
+                    "  pid        = " + pid);
+
+                MessageBox.Show(
+                    "Could not start the Windows receiver.\r\n\r\n" +
+                    "COM activation : " + (comError ?? "ok") + "\r\n" +
+                    "Shell fallback : " + (shellError ?? "launched") + "\r\n\r\n" +
+                    "--- how Miro is running ---\r\n" +
+                    DescribeContext() + "\r\n" +
+                    "Windows refuses to activate a packaged app from an elevated or\r\n" +
+                    "restricted process (E_ACCESSDENIED), and child processes from\r\n" +
+                    "such a process fail with 0xc0000142. If 'Elevated' above says\r\n" +
+                    "True, close Miro and start it from a normal (non-admin) Explorer.",
+                    Program.AppName, MessageBoxButtons.OK, MessageBoxIcon.Warning);
             };
             settle.Start();
         }

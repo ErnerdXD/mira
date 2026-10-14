@@ -34,6 +34,7 @@ $root   = Split-Path -Parent $PSScriptRoot
 $src    = Join-Path $root 'app\Miro.cs'
 $assemblyInfo = Join-Path $root 'app\AssemblyInfo.cs'
 $ico    = Join-Path $root 'app\miro.ico'
+$manifest = Join-Path $root 'app\Miro.manifest'
 $outDir = Join-Path $root 'dist'
 $exe    = Join-Path $outDir 'Miro.exe'
 
@@ -85,7 +86,8 @@ function Invoke-Compile {
     # ever grows a native Miracast receiver that matters: the Miracast APIs
     # return MiracastNotSupported from an x86 process.
     $options = '/target:winexe /optimize+ /platform:x64 /nologo'
-    if (Test-Path $ico) { $options += " /win32icon:`"$ico`"" }
+    if (Test-Path $ico)      { $options += " /win32icon:`"$ico`"" }
+    if (Test-Path $manifest) { $options += " /win32manifest:`"$manifest`"" }
 
     $cp = New-Object System.CodeDom.Compiler.CompilerParameters
     $cp.GenerateExecutable      = $true
@@ -98,6 +100,8 @@ function Invoke-Compile {
     [void]$cp.ReferencedAssemblies.Add('System.dll')
     [void]$cp.ReferencedAssemblies.Add('System.Drawing.dll')
     [void]$cp.ReferencedAssemblies.Add('System.Windows.Forms.dll')
+    # Used only for the parent-process diagnostic.
+    [void]$cp.ReferencedAssemblies.Add('System.Management.dll')
 
     $provider = New-Object Microsoft.CSharp.CSharpCodeProvider
 
