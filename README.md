@@ -1,4 +1,6 @@
-# Mirror Receiver
+# Mira
+
+<img src="src/MirrorReceiver/Assets/Square150x150Logo.png" alt="Mira" width="96">
 
 A small, open-source **Miracast receiver for Windows**. Mirror an Android phone's
 screen to your PC over Wi-Fi — no cables, no phone app, no account.
@@ -7,7 +9,7 @@ Built on the first-party [`Windows.Media.Miracast`](https://learn.microsoft.com/
 API. Around 300 lines of C#.
 
 ```
-Phone (Cast) ──Wi-Fi Direct / Miracast──▶ Mirror Receiver ──▶ Your screen
+Phone (Cast) ──Wi-Fi Direct / Miracast──▶ Mira ──▶ Your screen
 ```
 
 ---
@@ -128,3 +130,15 @@ the compiler derive them from the event — the same approach the reference samp
 ## License
 
 [MIT](LICENSE). See [NOTICE.md](NOTICE.md) for third-party attribution.
+
+## Regenerating assets
+
+The tile and logo PNGs are generated from source, not hand-drawn. The generator uses
+only the Python standard library — no Pillow, no ImageMagick:
+
+```bash
+python scripts/generate-assets.py
+```
+
+Edit the constants at the top of `scripts/generate-assets.py` (gradient colours, mark
+geometry, tile radius) and re-run to re-skin the app.

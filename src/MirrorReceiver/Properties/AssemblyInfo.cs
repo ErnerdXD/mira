@@ -2,11 +2,11 @@ using System.Reflection;
 using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
 
-[assembly: AssemblyTitle("MirrorReceiver")]
-[assembly: AssemblyDescription("Miracast screen mirroring receiver")]
+[assembly: AssemblyTitle("Mira")]
+[assembly: AssemblyDescription("Miracast screen mirroring receiver for Windows")]
 [assembly: AssemblyConfiguration("")]
-[assembly: AssemblyCompany("")]
-[assembly: AssemblyProduct("MirrorReceiver")]
+[assembly: AssemblyCompany("ErnerdXD")]
+[assembly: AssemblyProduct("Mira")]
 [assembly: AssemblyCopyright("")]
 [assembly: AssemblyTrademark("")]
 [assembly: AssemblyCulture("")]

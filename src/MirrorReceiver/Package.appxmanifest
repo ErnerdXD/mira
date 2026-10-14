@@ -14,8 +14,8 @@
                     PhonePublisherId="00000000-0000-0000-0000-000000000000"/>
 
   <Properties>
-    <DisplayName>Mirror Receiver</DisplayName>
-    <PublisherDisplayName>MirrorReceiverDev</PublisherDisplayName>
+    <DisplayName>Mira</DisplayName>
+    <PublisherDisplayName>ErnerdXD</PublisherDisplayName>
     <Logo>Assets\StoreLogo.png</Logo>
   </Properties>
 
@@ -34,10 +34,10 @@
       Executable="$targetnametoken$.exe"
       EntryPoint="MirrorReceiver.App">
       <uap:VisualElements
-        DisplayName="Mirror Receiver"
+        DisplayName="Mira"
         Square150x150Logo="Assets\Square150x150Logo.png"
         Square44x44Logo="Assets\Square44x44Logo.png"
-        Description="Receive a Miracast screen mirror from an Android phone."
+        Description="Miracast screen mirroring receiver. Mirror your Android phone to your PC over Wi-Fi."
         BackgroundColor="transparent">
         <uap:DefaultTile Wide310x150Logo="Assets\Wide310x150Logo.png"/>
         <uap:SplashScreen Image="Assets\SplashScreen.png" />

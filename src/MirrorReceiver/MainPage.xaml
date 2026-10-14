@@ -34,7 +34,7 @@
             Spacing="14"
             Width="620">
 
-            <TextBlock Text="Mirror Receiver"
+            <TextBlock Text="Mira"
                        FontSize="30" FontWeight="SemiBold"
                        Foreground="White" HorizontalAlignment="Center"/>
 
@@ -48,7 +48,7 @@
                     <TextBlock Text="Device name (what your phone will show)"
                                Foreground="#D0D0D0" FontSize="12"/>
                     <TextBox x:Name="NameBox"
-                             PlaceholderText="Mirror Receiver"
+                             PlaceholderText="Mira"
                              MaxLength="32"/>
                     <CheckBox x:Name="AllowTakeoverCheck"
                               Content="Allow a new phone to take over the session"
