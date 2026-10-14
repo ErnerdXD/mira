@@ -1,0 +1,72 @@
+# Build output
+[Bb]in/
+[Oo]bj/
+[Ll]og/
+[Ll]ogs/
+AppPackages/
+BundleArtifacts/
+*.appx
+*.appxbundle
+*.msix
+*.msixbundle
+*.appinstaller
+*.cer
+*.pfx
+*.p12
+Generated Files/
+*.g.cs
+*.g.i.cs
+
+# Visual Studio
+.vs/
+*.suo
+*.user
+*.userosscache
+*.sln.docstates
+*.userprefs
+*.VC.db
+*.VC.opendb
+[Bb]uild/
+[Tt]est[Rr]esult*/
+.vstest/
+TestResults/
+
+# NuGet
+*.nupkg
+*.snupkg
+packages/
+!packages/build/
+project.lock.json
+project.fragment.lock.json
+.nuget/
+
+# .NET / tooling
+*.dll
+*.exe
+*.pdb
+*.cache
+*.tlog
+*.log
+core
+
+# OS
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+$RECYCLE.BIN/
+.DS_Store
+
+# Editors
+.vscode/*
+!.vscode/extensions.json
+!.vscode/launch.json
+!.vscode/tasks.json
+*.swp
+*~
+
+# Secrets — never commit signing material
+*.pvk
+*.snk
+*.pem
+*.key
+secrets/

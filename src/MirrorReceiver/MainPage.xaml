@@ -1,0 +1,104 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Page
+    x:Class="MirrorReceiver.MainPage"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+    xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+    mc:Ignorable="d"
+    Background="Black">
+
+    <Grid x:Name="RootGrid">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="*"/>
+            <RowDefinition Height="Auto"/>
+        </Grid.RowDefinitions>
+
+        <!-- Video surface fills the page. Hidden chrome when connected. -->
+        <MediaPlayerElement
+            x:Name="VideoSurface"
+            Grid.Row="0"
+            Grid.RowSpan="3"
+            Stretch="Uniform"
+            AreTransportControlsEnabled="False"
+            Background="Black"/>
+
+        <!-- Idle chrome: shown until a transmitter connects -->
+        <StackPanel
+            x:Name="IdlePanel"
+            Grid.Row="0"
+            Grid.RowSpan="3"
+            VerticalAlignment="Center"
+            HorizontalAlignment="Center"
+            Spacing="14"
+            Width="620">
+
+            <TextBlock Text="Mirror Receiver"
+                       FontSize="30" FontWeight="SemiBold"
+                       Foreground="White" HorizontalAlignment="Center"/>
+
+            <TextBlock x:Name="StatusText"
+                       Text="Starting..."
+                       FontSize="15" Foreground="#B0B0B0"
+                       HorizontalAlignment="Center" TextAlignment="Center"/>
+
+            <Border Background="#14FFFFFF" CornerRadius="6" Padding="16">
+                <StackPanel Spacing="10">
+                    <TextBlock Text="Device name (what your phone will show)"
+                               Foreground="#D0D0D0" FontSize="12"/>
+                    <TextBox x:Name="NameBox"
+                             PlaceholderText="Mirror Receiver"
+                             MaxLength="32"/>
+                    <CheckBox x:Name="AllowTakeoverCheck"
+                              Content="Allow a new phone to take over the session"
+                              IsChecked="True" Foreground="#D0D0D0"/>
+                    <StackPanel Orientation="Horizontal" Spacing="8">
+                        <Button x:Name="ApplyButton" Content="Apply settings"
+                                Click="OnApplySettings"/>
+                        <Button x:Name="RestartButton" Content="Restart service"
+                                Click="OnRestartService"/>
+                        <Button x:Name="FullscreenButton" Content="Fullscreen"
+                                Click="OnToggleFullscreen"/>
+                    </StackPanel>
+                </StackPanel>
+            </Border>
+
+            <TextBlock x:Name="DetailText"
+                       Text=""
+                       FontSize="12" Foreground="#8A8A8A"
+                       HorizontalAlignment="Center" TextAlignment="Center"
+                       TextWrapping="Wrap"/>
+
+            <TextBlock FontSize="11" Foreground="#6A6A6A" HorizontalAlignment="Center"
+                       TextAlignment="Center" TextWrapping="Wrap"
+                       Text="On your Android phone open Settings > Connections > Cast / Smart View / Wireless display and pick this PC."/>
+        </StackPanel>
+
+        <!-- Connected overlay hint -->
+        <TextBlock x:Name="ConnectedHint"
+                   Grid.Row="2"
+                   Margin="0,0,0,16"
+                   HorizontalAlignment="Center"
+                   FontSize="12" Foreground="#88FFFFFF"
+                   Visibility="Collapsed"
+                   Text="Esc  exit fullscreen     F  toggle fullscreen"/>
+
+        <!-- Event log -->
+        <Border x:Name="LogPanel"
+                Grid.Row="1"
+                VerticalAlignment="Bottom"
+                Margin="16,0,16,16"
+                Background="#99000000"
+                CornerRadius="6"
+                Padding="12"
+                MaxHeight="180">
+            <ScrollViewer x:Name="LogScroll" VerticalScrollBarVisibility="Auto">
+                <TextBlock x:Name="LogText"
+                           FontFamily="Consolas" FontSize="11"
+                           Foreground="#A8E6A8"
+                           TextWrapping="Wrap"/>
+            </ScrollViewer>
+        </Border>
+    </Grid>
+</Page>

@@ -1,0 +1,59 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Package
+  xmlns="http://schemas.microsoft.com/appx/manifest/foundation/windows10"
+  xmlns:mp="http://schemas.microsoft.com/appx/2014/phone/manifest"
+  xmlns:uap="http://schemas.microsoft.com/appx/manifest/uap/windows10"
+  IgnorableNamespaces="uap mp">
+
+  <!-- Replace Name/Publisher with your own before publishing anywhere. -->
+  <Identity
+    Name="MirrorReceiver.App"
+    Publisher="CN=MirrorReceiverDev"
+    Version="1.0.0.0" />
+
+  <mp:PhoneIdentity PhoneProductId="b1e6f0a2-4c3d-4f8e-9a71-2d5c8b0e4f31"
+                    PhonePublisherId="00000000-0000-0000-0000-000000000000"/>
+
+  <Properties>
+    <DisplayName>Mirror Receiver</DisplayName>
+    <PublisherDisplayName>MirrorReceiverDev</PublisherDisplayName>
+    <Logo>Assets\StoreLogo.png</Logo>
+  </Properties>
+
+  <Dependencies>
+    <TargetDeviceFamily Name="Windows.Universal"
+                        MinVersion="10.0.19041.0"
+                        MaxVersionTested="10.0.22621.0" />
+  </Dependencies>
+
+  <Resources>
+    <Resource Language="x-generate"/>
+  </Resources>
+
+  <Applications>
+    <Application Id="App"
+      Executable="$targetnametoken$.exe"
+      EntryPoint="MirrorReceiver.App">
+      <uap:VisualElements
+        DisplayName="Mirror Receiver"
+        Square150x150Logo="Assets\Square150x150Logo.png"
+        Square44x44Logo="Assets\Square44x44Logo.png"
+        Description="Receive a Miracast screen mirror from an Android phone."
+        BackgroundColor="transparent">
+        <uap:DefaultTile Wide310x150Logo="Assets\Wide310x150Logo.png"/>
+        <uap:SplashScreen Image="Assets\SplashScreen.png" />
+      </uap:VisualElements>
+    </Application>
+  </Applications>
+
+  <!--
+    Windows.Media.Miracast will not initialise without these.
+    This is the same capability set the reference sample declares.
+  -->
+  <Capabilities>
+    <Capability Name="internetClient" />
+    <Capability Name="internetClientServer"/>
+    <Capability Name="privateNetworkClientServer"/>
+    <DeviceCapability Name="bluetooth"/>
+  </Capabilities>
+</Package>

@@ -1,0 +1,54 @@
+name: build
+
+on:
+  push:
+    branches: [ main, master ]
+  pull_request:
+    branches: [ main, master ]
+  workflow_dispatch:
+
+jobs:
+  build:
+    # UWP builds require a Windows runner; there is no cross-platform path.
+    runs-on: windows-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Add MSBuild to PATH
+        uses: microsoft/setup-msbuild@v2
+
+      - name: Setup NuGet
+        uses: nuget/setup-nuget@v2
+
+      - name: Report toolchain versions
+        run: |
+          msbuild -version
+          Write-Host "--- Windows SDKs ---"
+          Get-ChildItem 'C:\Program Files (x86)\Windows Kits\10\bin' -Directory -ErrorAction SilentlyContinue |
+            Select-Object -ExpandProperty Name
+        shell: pwsh
+
+      - name: Restore
+        run: nuget restore src/MirrorReceiver/MirrorReceiver.csproj
+
+      - name: Build (Release, x64)
+        # AppxBundle=Never keeps the runner from needing a signing certificate.
+        # Signing is intentionally disabled: no cert is committed to this repo.
+        run: >
+          msbuild src/MirrorReceiver/MirrorReceiver.csproj
+          /p:Configuration=Release
+          /p:Platform=x64
+          /p:AppxBundle=Never
+          /p:AppxPackageSigningEnabled=false
+          /p:UseDotNetNativeToolchain=false
+          /verbosity:minimal
+
+      - name: Upload build output
+        uses: actions/upload-artifact@v4
+        with:
+          name: MirrorReceiver-x64-Release
+          path: src/MirrorReceiver/bin/x64/Release/
+          if-no-files-found: warn
+          retention-days: 14
