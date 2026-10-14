@@ -54,15 +54,14 @@ if (Test-Path (Join-Path $PSScriptRoot 'generate-assets.py')) {
 
 New-Item -ItemType Directory -Force -Path $outDir | Out-Null
 
-# Windows locks a running executable, so overwriting it fails with a bare
-# UnauthorizedAccessException. Detect that case and say something useful.
+# A running copy holds a lock on its own .exe. Warn, but keep going: the
+# compile step below detects the lock (CS0016) and falls back to a side-by-side
+# binary. Exiting here would skip that fallback entirely.
 $running = Get-Process -Name Miro -ErrorAction SilentlyContinue
 if ($running) {
     Write-Host "`n[!] Miro is running (pid $($running.Id -join ', '))." -ForegroundColor Yellow
-    Write-Host "    Its .exe is locked, so it cannot be rebuilt in place." -ForegroundColor Yellow
-    Write-Host "    Close it first:  right-click the tray icon  ->  Exit" -ForegroundColor Yellow
-    Write-Host "    Then re-run this script." -ForegroundColor Yellow
-    exit 1
+    Write-Host "    Its .exe is locked. Close it (tray icon -> Exit) to rebuild in place;" -ForegroundColor Yellow
+    Write-Host "    otherwise a side-by-side Miro.new.exe will be produced." -ForegroundColor DarkGray
 }
 
 if (Test-Path $exe) {

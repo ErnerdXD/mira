@@ -51,6 +51,80 @@ namespace Miro
         }
     }
 
+    /// <summary>
+    /// Activates a packaged (UWP) app by its Application User Model ID.
+    ///
+    /// This uses IApplicationActivationManager, the documented way for a desktop
+    /// process to launch a UWP app. It is used instead of
+    /// "explorer.exe shell:appsFolder\..." because that route spawns a fresh
+    /// explorer.exe, which can fail with 0xc0000142 (STATUS_DLL_INIT_FAILED)
+    /// when the calling process has an unusual token or sits in a job object.
+    /// The COM path has no such dependency.
+    /// </summary>
+    internal static class UwpLauncher
+    {
+        [ComImport]
+        [Guid("2e941141-7f97-4756-ba1d-9decde894a3d")]
+        [InterfaceType(ComInterfaceType.InterfaceIsIUnknown)]
+        private interface IApplicationActivationManager
+        {
+            [PreserveSig]
+            int ActivateApplication(
+                [In] string appUserModelId,
+                [In] string arguments,
+                [In] uint options,
+                [Out] out uint processId);
+
+            [PreserveSig]
+            int ActivateForFile(
+                [In] string appUserModelId,
+                [In] IntPtr itemArray,
+                [In] string verb,
+                [Out] out uint processId);
+
+            [PreserveSig]
+            int ActivateForProtocol(
+                [In] string appUserModelId,
+                [In] IntPtr itemArray,
+                [Out] out uint processId);
+        }
+
+        private static readonly Guid Clsid =
+            new Guid("45BA127D-10A8-46EA-8AB7-56EA9078943C");
+
+        /// <summary>
+        /// Returns the new process id, or 0 on failure (with a reason in error).
+        /// </summary>
+        public static uint Activate(string aumid, out string error)
+        {
+            error = null;
+            try
+            {
+                Type t = Type.GetTypeFromCLSID(Clsid);
+                if (t == null)
+                {
+                    error = "ApplicationActivationManager is not registered.";
+                    return 0;
+                }
+
+                var mgr = (IApplicationActivationManager)Activator.CreateInstance(t);
+                uint pid;
+                int hr = mgr.ActivateApplication(aumid, null, 0, out pid);
+                if (hr < 0)
+                {
+                    error = "ActivateApplication failed (HRESULT 0x" + hr.ToString("X8") + ")";
+                    return 0;
+                }
+                return pid;
+            }
+            catch (Exception ex)
+            {
+                error = ex.Message;
+                return 0;
+            }
+        }
+    }
+
     internal sealed class MainForm : Form
     {
         private const string Pink = "#7C3AED";
@@ -63,22 +137,18 @@ namespace Miro
         private readonly NotifyIcon _tray = new NotifyIcon();
         private readonly System.Windows.Forms.Timer _poll = new System.Windows.Forms.Timer();
         private bool _reallyExit;
+        private uint _launchedPid;
 
         public MainForm()
         {
             BuildUi();
             BuildTray();
 
-            // If the feature is missing, surface that immediately.
-            if (!ReceiverInstalled())
-            {
-                SetStatus("Windows' receiver feature is not installed yet.", false);
-                _install.Visible = true;
-            }
-            else
-            {
-                SetStatus("Ready. Click Start receiver.", false);
-            }
+            // Deliberately do NOT probe for the feature up front. Detecting it
+            // reliably requires elevation, and guessing wrong hides a working
+            // setup behind an install button. It only appears if a launch fails.
+            _install.Visible = false;
+            SetStatus("Ready. Click Start receiver.", false);
 
             _poll.Interval = 1500;
             _poll.Tick += (s, e) => RefreshState();
@@ -246,33 +316,26 @@ namespace Miro
 
         private void RefreshState()
         {
-            bool running = ReceiverRunning();
+            bool running = ReceiverRunning() || ProcessAlive(_launchedPid);
             if (running)
                 SetStatus("Receiver is running. Now connect from your phone.", true);
-            else if (ReceiverInstalled())
-                SetStatus("Ready. Click Start receiver.", false);
         }
 
-        private static bool ReceiverInstalled()
+        private static bool ProcessAlive(uint pid)
         {
-            // The Connect app registers a Start-menu entry under this AUMID.
-            // If the appx package is absent the shell launch simply fails, so
-            // a cheap presence check is to look for its package folder.
+            if (pid == 0) return false;
             try
             {
-                string root = Environment.GetFolderPath(Environment.SpecialFolder.Windows);
-                foreach (var dir in System.IO.Directory.GetDirectories(
-                             System.IO.Path.Combine(root, "SystemApps")))
-                {
-                    if (dir.IndexOf("PPIProjection", StringComparison.OrdinalIgnoreCase) >= 0)
-                        return true;
-                }
+                using (var p = Process.GetProcessById((int)pid))
+                    return !p.HasExited;
             }
-            catch { /* access denied is expected for SystemApps */ }
-
-            // Fall back: assume installed and let the launch attempt decide.
-            return true;
+            catch { return false; }
         }
+
+        // Note: there is deliberately no ReceiverInstalled() probe. Checking for
+        // the Wireless Display package needs elevation, and a wrong answer would
+        // hide a working setup behind an "install" button. Whether the feature
+        // exists is decided by actually trying to launch it.
 
         private static bool ReceiverRunning()
         {
@@ -301,42 +364,58 @@ namespace Miro
 
         private void StartReceiver()
         {
-            if (ReceiverRunning())
+            if (ReceiverRunning() || ProcessAlive(_launchedPid))
             {
                 SetStatus("Receiver is already running.", true);
                 return;
             }
 
-            try
+            SetStatus("Starting receiver...", false);
+
+            // Primary: COM activation of the packaged app. No explorer involved.
+            string error;
+            uint pid = UwpLauncher.Activate(Program.ReceiverAumid, out error);
+
+            // Fallback: shell activation. Works on most machines but can fail
+            // with 0xc0000142 from unusual process contexts.
+            if (pid == 0)
             {
-                Process.Start(new ProcessStartInfo(
-                    "explorer.exe",
-                    "shell:appsFolder\\" + Program.ReceiverAumid)
-                { UseShellExecute = true });
-
-                SetStatus("Starting receiver...", false);
-                _install.Visible = false;
-
-                var settle = new System.Windows.Forms.Timer { Interval = 3000 };
-                settle.Tick += (s, e) =>
+                try
                 {
-                    settle.Stop();
-                    settle.Dispose();
-                    if (ReceiverRunning())
-                        SetStatus("Receiver is running. Now connect from your phone.", true);
-                    else
-                    {
-                        SetStatus("Could not start the receiver feature.", false);
-                        _install.Visible = true;
-                    }
-                };
-                settle.Start();
+                    Process.Start(new ProcessStartInfo(
+                        "explorer.exe",
+                        "shell:appsFolder\\" + Program.ReceiverAumid)
+                    { UseShellExecute = true });
+                    error = null;
+                }
+                catch (Exception ex)
+                {
+                    error = ex.Message;
+                }
             }
-            catch (Exception ex)
+
+            _launchedPid = pid;
+            _install.Visible = false;
+
+            var settle = new System.Windows.Forms.Timer { Interval = 3000 };
+            settle.Tick += (s, e) =>
             {
-                SetStatus("Launch failed: " + ex.Message, false);
-                _install.Visible = true;
-            }
+                settle.Stop();
+                settle.Dispose();
+
+                if (ReceiverRunning() || ProcessAlive(_launchedPid))
+                {
+                    SetStatus("Receiver is running. Now connect from your phone.", true);
+                }
+                else
+                {
+                    SetStatus(error == null
+                        ? "Could not start the receiver feature."
+                        : "Could not start receiver: " + error, false);
+                    _install.Visible = true;
+                }
+            };
+            settle.Start();
         }
 
         private void InstallFeature()
