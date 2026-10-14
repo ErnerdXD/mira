@@ -37,8 +37,8 @@ MARK = (255, 255, 255)
 # --------------------------------------------------------------------------- #
 # PNG writer
 # --------------------------------------------------------------------------- #
-def write_png(path: str, width: int, height: int, pixels: bytes) -> None:
-    """pixels: raw RGBA bytes, length == width * height * 4."""
+def encode_png(width: int, height: int, pixels: bytes) -> bytes:
+    """pixels: raw RGBA bytes, length == width * height * 4. Returns PNG bytes."""
 
     def chunk(tag: bytes, data: bytes) -> bytes:
         return (
@@ -58,9 +58,46 @@ def write_png(path: str, width: int, height: int, pixels: bytes) -> None:
     out += chunk(b"IHDR", struct.pack(">IIBBBBB", width, height, 8, 6, 0, 0, 0))
     out += chunk(b"IDAT", zlib.compress(bytes(raw), 9))
     out += chunk(b"IEND", b"")
+    return out
+
+
+def write_png(path: str, width: int, height: int, pixels: bytes) -> None:
+    with open(path, "wb") as fh:
+        fh.write(encode_png(width, height, pixels))
+
+
+def write_ico(path: str, images: list[tuple[int, int, bytes]]) -> None:
+    """
+    Write a multi-resolution .ico using PNG-compressed entries.
+
+    PNG entries inside ICO are supported by Windows Vista and later, and using
+    them means one encoder for both outputs. Width/height of 0 means 256.
+    """
+    count = len(images)
+    header = struct.pack("<HHH", 0, 1, count)
+
+    entries = b""
+    payload = b""
+    offset = 6 + 16 * count
+
+    for width, height, pixels in images:
+        data = encode_png(width, height, pixels)
+        entries += struct.pack(
+            "<BBBBHHII",
+            0 if width >= 256 else width,
+            0 if height >= 256 else height,
+            0,                       # palette colours
+            0,                       # reserved
+            1,                       # colour planes
+            32,                      # bits per pixel
+            len(data),
+            offset,
+        )
+        payload += data
+        offset += len(data)
 
     with open(path, "wb") as fh:
-        fh.write(out)
+        fh.write(header + entries + payload)
 
 
 # --------------------------------------------------------------------------- #
@@ -255,6 +292,19 @@ def main() -> int:
         print(f"  {name:56} {width:>3}x{height:<3}  {len(data):>7,} B")
 
     print(f"\nWrote {len(jobs)} assets to {out_dir}")
+
+    # --- multi-resolution .ico for Mira.exe ------------------------------- #
+    ico_dir = os.path.abspath(os.path.join(here, "..", "app"))
+    os.makedirs(ico_dir, exist_ok=True)
+    ico_path = os.path.join(ico_dir, "mira.ico")
+
+    # Windows picks the closest size; supply the common shell sizes.
+    ico_sizes = [16, 24, 32, 48, 64, 128, 256]
+    images = [(s, s, render_square(s, mark_scale=0.78)) for s in ico_sizes]
+    write_ico(ico_path, images)
+    print(f"Wrote icon to {ico_path}  ({os.path.getsize(ico_path):,} bytes, "
+          f"{len(ico_sizes)} sizes)")
+
     return 0
 
 

@@ -70,21 +70,57 @@ your whole desktop:_
 - Windows 10 SDK **10.0.19041.0** or later
 - Developer Mode enabled
 
-## Quick start (no build required)
+## Two ways to use this
 
-Windows can already do this natively. Turn it on first to confirm your hardware works
-before building anything:
+**1. `Mira.exe` — a 37 KB desktop app. No SDK, no Visual Studio, no download.**
+
+Build it in about a second:
+
+```powershell
+.\scripts\build-app.ps1 -Shortcut
+```
+
+Then double-click `dist\Mira.exe`. It starts Windows' Miracast receiver, shows you
+whether it's running, walks you through connecting your phone, and sits in the tray.
+
+It is compiled with the C# compiler **already inside Windows**, so there is nothing to
+install.
+
+> **What Mira.exe is and isn't.** Windows only lets a program render mirrored video if
+> it is a packaged UWP app, so a plain desktop app cannot draw the video itself. Mira.exe
+> therefore *drives* the receiver Windows already contains rather than replacing it —
+> the video appears in the receiver window, and Mira is your front end for it. It is
+> the useful, tiny option. The full UWP app below is the one that renders video in its
+> own window, and it needs the SDK.
+
+**2. The UWP receiver in `src/` — renders video in its own window.**
+
+Requires Visual Studio with the UWP workload (~8–15 GB):
+
+```powershell
+# Administrator PowerShell
+.\scripts\install-toolchain.ps1
+```
+
+Then open `MirrorReceiver.sln`, set the platform to **x64**, press **F5**.
+
+## First-time setup
+
+Whichever route you take, Windows needs its receiver feature switched on once:
 
 ```powershell
 # Administrator PowerShell
 .\scripts\Enable-BuiltInReceiver.ps1
 ```
 
-Then open **Start → "Connect"** on the PC, and on the phone go to
+That installs Microsoft's "Wireless Display" capability. A reboot may be required.
+
+Then, on the PC, open **Start → "Connect"**, and on the phone go to
 **Settings → Connections → Cast / Smart View / Wireless display**.
 
 If the PC never appears on your phone, your Wi-Fi driver or phone lacks Miracast —
 and no amount of coding will fix that. Check the script's output.
+
 
 ## Build from source
 
