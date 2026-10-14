@@ -21,6 +21,24 @@ devices do not, so testing on one is not possible.
 - Do not commit `bin/`, `obj/`, `AppPackages/`, signing certificates, or `.pfx` files.
   `.gitignore` covers these — check `git status` before committing.
 
+## Screenshots
+
+`docs/screenshot.png` is captured from a running build, not mocked up. It is cropped
+to the app window on purpose so nothing else on the desktop ends up in a public repo.
+
+```powershell
+# with Mira running
+.\scripts\capture-screenshot.ps1 -WindowTitle "Mira"
+```
+
+Not sure what the window is called? List the open windows:
+
+```powershell
+.\scripts\capture-screenshot.ps1 -List
+```
+
+Then uncomment the image line in the README's Screenshots section.
+
 ## What's genuinely useful
 
 - **Hardware compatibility reports.** If you test on a Wi-Fi chip or phone not listed

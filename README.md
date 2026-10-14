@@ -31,6 +31,22 @@ _session.MediaSourceCreated += (session, args) =>
 };
 ```
 
+## Screenshots
+
+<!--
+Once docs/screenshot.png exists, delete these comment markers to publish it:
+
+![Mira receiving an Android phone screen](docs/screenshot.png)
+-->
+
+_No screenshot is committed yet. Capture one yourself with the helper script — run
+it while the app is open, and it crops to just the app window rather than grabbing
+your whole desktop:_
+
+```powershell
+.\scripts\capture-screenshot.ps1 -WindowTitle "Mira"
+```
+
 ## Features
 
 - Receive Miracast / "Wireless display" / Smart View / Cast Screen from Android

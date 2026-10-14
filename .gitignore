@@ -64,6 +64,12 @@ $RECYCLE.BIN/
 *.swp
 *~
 
+# Python (the asset generator)
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+
 # Secrets — never commit signing material
 *.pvk
 *.snk
