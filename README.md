@@ -153,12 +153,35 @@ the compiler derive them from the event — the same approach the reference samp
 
 | Symptom | Cause / fix |
 |---|---|
+| **"Restricted launch detected"** on startup | **Miro is running inside a sandbox / restricted shell.** Close it and start `Miro.exe` from File Explorer or a normal PowerShell. See the note below. |
+| **"Could not start the Windows receiver"** with `E_ACCESSDENIED` | Same cause. A sandboxed parent is refused COM activation of packaged apps. |
+| **`0xc0000142` in an `explorer.exe` dialog** | Same cause. A sandboxed parent cannot create child processes at all. |
 | PC never appears in the phone's cast list | Different Wi-Fi networks. Put both on the same network, or use a hotspot. |
 | PC appears, connection fails | Settings → System → **Projecting to this PC** → set both dropdowns to *"Available everywhere on secure networks"*. |
 | Worked before, now nothing | Click **Restart service** in the app. This is why that button exists. |
 | "No wireless adapter found" | Miracast requires Wi-Fi. Ethernet-only will not work. |
 | Phone has no Cast / Wireless display option | Your phone dropped Miracast. Google Pixel models do not support it. |
 | Video but no audio | Check the Windows volume mixer, and see the known limitation below. |
+
+### If the receiver will not start
+
+Confirm which process launched Miro. A restricted parent shows up as an
+unreadable parent process id:
+
+```powershell
+# In Miro's diagnostic file, look at the "Parent" and "Spawn test" lines:
+notepad .\dist\miro-diagnostic.txt
+```
+
+- `Spawn test : ... -> children WORK` — context is fine, the problem is elsewhere
+- `Spawn test : ... -> child died/failed` — Miro is sandboxed. Relaunch it from
+  File Explorer. This is not fixable from inside the app: a restricted process
+  cannot create child processes, and Windows refuses to activate a packaged app
+  from one (`E_ACCESSDENIED`).
+
+Miro writes `dist/miro-diagnostic.txt` on every start and on every failed launch.
+It is the first thing to check in a bug report.
+
 
 ## Known limitations
 

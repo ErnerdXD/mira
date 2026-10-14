@@ -8,88 +8,174 @@ on:
   workflow_dispatch:
 
 jobs:
-  build:
-    # UWP builds need a Windows runner; there is no cross-platform path.
+  # ---------------------------------------------------------------------------
+  # The desktop app is the primary deliverable: it compiles with the C# compiler
+  # that ships inside Windows, so this job needs no SDK and can actually pass.
+  # ---------------------------------------------------------------------------
+  miro-app:
+    name: Miro.exe (desktop app)
     runs-on: windows-latest
 
     steps:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Setup NuGet
-        uses: nuget/setup-nuget@v2
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.x'
 
-      # ------------------------------------------------------------------ #
-      # The UWP XAML targets are resolved relative to the Visual Studio
-      # installation. Using the MSBuild that is merely on PATH often resolves
-      # $(MSBuildExtensionsPath32) to a directory that has no WindowsXaml
-      # folder, which fails the project import instantly (MSB4019).
-      # Resolve MSBuild from the VS installation via vswhere instead.
-      # ------------------------------------------------------------------ #
-      - name: Locate Visual Studio and MSBuild
+      - name: Regenerate assets and icon from source
+        run: python scripts/generate-assets.py
+
+      - name: Fail if generated assets drifted from what is committed
         shell: pwsh
         run: |
-          $vswhere = "${env:ProgramFiles(x86)}\Microsoft Visual Studio\Installer\vswhere.exe"
-          if (-not (Test-Path $vswhere)) { throw "vswhere.exe not found at $vswhere" }
+          $changed = git status --porcelain -- src/MirrorReceiver/Assets app/miro.ico
+          if ($changed) {
+            Write-Host "Generated assets differ from the committed files:" -ForegroundColor Red
+            Write-Host $changed
+            Write-Host "`nRun 'python scripts/generate-assets.py' and commit the result."
+            exit 1
+          }
+          Write-Host "Assets are reproducible."
 
-          $vsPath = & $vswhere -latest -products * -requires Microsoft.Component.MSBuild -property installationPath
-          if (-not $vsPath) { throw "No Visual Studio installation with the MSBuild component was found." }
-          Write-Host "Visual Studio : $vsPath"
-
-          $msbuild = Join-Path $vsPath 'MSBuild\Current\Bin\MSBuild.exe'
-          if (-not (Test-Path $msbuild)) { throw "MSBuild.exe not found at $msbuild" }
-          Write-Host "MSBuild       : $msbuild"
-
-          "MSBUILD=$msbuild" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
-          "VSPATH=$vsPath"   | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
-
-      - name: Diagnose UWP toolchain
+      - name: Build Miro.exe
         shell: pwsh
         run: |
-          Write-Host "===== Windows SDK versions ====="
-          Get-ChildItem 'C:\Program Files (x86)\Windows Kits\10\bin' -Directory -ErrorAction SilentlyContinue |
-            Select-Object -ExpandProperty Name
+          ./scripts/build-app.ps1
+          if (-not (Test-Path ./dist/Miro.exe)) { throw "Miro.exe was not produced" }
 
-          Write-Host "`n===== WindowsXaml MSBuild targets (required by UWP) ====="
-          $xaml = Join-Path $env:VSPATH 'MSBuild\Microsoft\WindowsXaml'
-          if (Test-Path $xaml) {
-            Get-ChildItem $xaml -Directory | Select-Object -ExpandProperty Name
-          } else {
-            Write-Host "MISSING: $xaml"
-            Write-Host "=> The UWP workload is NOT installed on this runner."
+      - name: Verify the executable
+        shell: pwsh
+        run: |
+          $exe = "./dist/Miro.exe"
+          $vi  = (Get-Item $exe).VersionInfo
+
+          Write-Host "size         : $((Get-Item $exe).Length) bytes"
+          Write-Host "ProductName  : $($vi.ProductName)"
+          Write-Host "FileVersion  : $($vi.FileVersion)"
+
+          $problems = @()
+          if ($vi.ProductName -ne 'Miro')  { $problems += "ProductName is '$($vi.ProductName)', expected 'Miro'" }
+          if (-not $vi.FileVersion)        { $problems += "FileVersion is empty - AssemblyInfo not compiled in" }
+          if ((Get-Item $exe).Length -lt 20KB) { $problems += "exe is suspiciously small" }
+
+          # Confirm an application manifest is embedded (RT_MANIFEST resource).
+          $bytes = [System.IO.File]::ReadAllBytes($exe)
+          $text  = [System.Text.Encoding]::ASCII.GetString($bytes)
+          if ($text -notmatch 'requestedExecutionLevel') {
+            $problems += "no embedded application manifest (requestedExecutionLevel not found)"
           }
 
-          Write-Host "`n===== Installed VS workloads ====="
-          $vswhere = "${env:ProgramFiles(x86)}\Microsoft Visual Studio\Installer\vswhere.exe"
-          & $vswhere -latest -products * -property workloads
+          Add-Type -AssemblyName System.Drawing
+          $icon = [System.Drawing.Icon]::ExtractAssociatedIcon((Resolve-Path $exe))
+          if (-not $icon) { $problems += "no icon embedded" }
+          else { Write-Host "icon         : $($icon.Width)x$($icon.Height)" }
 
-          Write-Host "`n===== msbuild -version ====="
-          & $env:MSBUILD -version
+          if ($problems.Count) {
+            $problems | ForEach-Object { Write-Host "FAIL: $_" -ForegroundColor Red }
+            throw "Executable verification failed"
+          }
+          Write-Host "`nExecutable verified." -ForegroundColor Green
 
-      - name: Restore
-        shell: pwsh
-        run: nuget restore src/MirrorReceiver/MirrorReceiver.csproj
+      - name: Upload Miro.exe
+        uses: actions/upload-artifact@v4
+        with:
+          name: Miro-x64
+          path: dist/Miro.exe
+          if-no-files-found: error
+          retention-days: 30
 
-      - name: Build (Release, x64)
+  # ---------------------------------------------------------------------------
+  # Cheap structural checks. Catch malformed XAML/manifest before anyone opens
+  # the solution in Visual Studio.
+  # ---------------------------------------------------------------------------
+  validate:
+    name: Static validation
+    runs-on: windows-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: XML files are well-formed
         shell: pwsh
         run: |
-          # Do NOT pin /p:VisualStudioVersion here. The runner's VS major
-          # version changes over time and a wrong pin breaks the WindowsXaml
-          # target import. Let MSBuild resolve it from the installed VS.
-          & $env:MSBUILD src/MirrorReceiver/MirrorReceiver.csproj `
+          $files = Get-ChildItem -Recurse -File -Include *.xaml,*.appxmanifest,*.csproj
+          $failed = 0
+          foreach ($f in $files) {
+            try {
+              [xml](Get-Content $f.FullName -Raw) | Out-Null
+              Write-Host "  OK   $($f.Name)"
+            } catch {
+              Write-Host "  FAIL $($f.FullName): $($_.Exception.Message)" -ForegroundColor Red
+              $failed++
+            }
+          }
+          if ($failed) { throw "$failed XML file(s) malformed" }
+
+      - name: PowerShell scripts parse
+        shell: pwsh
+        run: |
+          $failed = 0
+          foreach ($f in Get-ChildItem scripts -Filter *.ps1) {
+            $errs = $null; $tokens = $null
+            [void][System.Management.Automation.Language.Parser]::ParseFile(
+              $f.FullName, [ref]$tokens, [ref]$errs)
+            if ($errs.Count) {
+              Write-Host "  FAIL $($f.Name)" -ForegroundColor Red
+              $errs | ForEach-Object { Write-Host "       $($_.Message)" }
+              $failed++
+            } else { Write-Host "  OK   $($f.Name)" }
+          }
+          if ($failed) { throw "$failed script(s) failed to parse" }
+
+      - name: Python scripts are valid
+        run: python -m py_compile scripts/generate-assets.py
+
+  # ---------------------------------------------------------------------------
+  # The UWP receiver needs the Universal Windows Platform workload plus a
+  # matching Windows SDK. Those are not guaranteed on hosted runners, so this
+  # job is advisory: it reports, it does not block.
+  # ---------------------------------------------------------------------------
+  uwp-receiver:
+    name: UWP receiver (advisory)
+    runs-on: windows-latest
+    continue-on-error: true
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Add MSBuild to PATH
+        uses: microsoft/setup-msbuild@v2
+
+      - name: Locate Visual Studio
+        shell: pwsh
+        run: |
+          $vswhere = "${env:ProgramFiles(x86)}\Microsoft Visual Studio\Installer\vswhere.exe"
+          if (-not (Test-Path $vswhere)) { throw "vswhere.exe not found" }
+
+          $vsPath = & $vswhere -latest -products * -requires Microsoft.Component.MSBuild -property installationPath
+          Write-Host "Visual Studio : $vsPath"
+          "VSPATH=$vsPath" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
+
+          $xaml = Join-Path $vsPath 'MSBuild\Microsoft\WindowsXaml'
+          if (Test-Path $xaml) {
+            Write-Host "WindowsXaml targets present"
+          } else {
+            Write-Host "WindowsXaml targets MISSING - UWP workload not installed on this runner" -ForegroundColor Yellow
+          }
+
+      - name: Build UWP receiver
+        shell: pwsh
+        run: |
+          nuget restore src/MirrorReceiver/MirrorReceiver.csproj
+          msbuild src/MirrorReceiver/MirrorReceiver.csproj `
             /p:Configuration=Release `
             /p:Platform=x64 `
             /p:AppxBundle=Never `
             /p:AppxPackageSigningEnabled=false `
             /p:UseDotNetNativeToolchain=false `
-            /verbosity:normal
-          if ($LASTEXITCODE -ne 0) { throw "MSBuild failed with exit code $LASTEXITCODE" }
-
-      - name: Upload build output
-        if: success()
-        uses: actions/upload-artifact@v4
-        with:
-          name: MirrorReceiver-x64-Release
-          path: src/MirrorReceiver/bin/x64/Release/
-          if-no-files-found: warn
-          retention-days: 14
+            /verbosity:minimal
