@@ -1,4 +1,4 @@
-// Mira - a small desktop companion that starts and manages the Windows
+// Miro - a small desktop companion that starts and manages the Windows
 // Miracast receiver.
 //
 // Why this exists rather than a full receiver in this window:
@@ -17,11 +17,11 @@ using System.Runtime.InteropServices;
 using System.Threading;
 using System.Windows.Forms;
 
-namespace Mira
+namespace Miro
 {
     internal static class Program
     {
-        public const string AppName = "Mira";
+        public const string AppName = "Miro";
         public const string Version = "1.0.0";
 
         // The packaged identity of Windows' built-in receiver ("Connect").
@@ -35,11 +35,11 @@ namespace Mira
         {
             // Only one copy running.
             bool createdNew;
-            using (var mutex = new Mutex(true, "Mira.SingleInstance", out createdNew))
+            using (var mutex = new Mutex(true, "Miro.SingleInstance", out createdNew))
             {
                 if (!createdNew)
                 {
-                    MessageBox.Show("Mira is already running - look for it in the tray.",
+                    MessageBox.Show("Miro is already running - look for it in the tray.",
                         AppName, MessageBoxButtons.OK, MessageBoxIcon.Information);
                     return;
                 }
@@ -197,7 +197,7 @@ namespace Mira
             _tray.DoubleClick += (s, e) => ShowFromTray();
 
             var menu = new ContextMenuStrip();
-            menu.Items.Add("Open Mira", null, (s, e) => ShowFromTray());
+            menu.Items.Add("Open Miro", null, (s, e) => ShowFromTray());
             menu.Items.Add("Start receiver", null, (s, e) => StartReceiver());
             menu.Items.Add("How to connect", null, (s, e) => ShowHelp());
             menu.Items.Add(new ToolStripSeparator());

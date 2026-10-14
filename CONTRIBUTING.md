@@ -27,8 +27,8 @@ devices do not, so testing on one is not possible.
 to the app window on purpose so nothing else on the desktop ends up in a public repo.
 
 ```powershell
-# with Mira running
-.\scripts\capture-screenshot.ps1 -WindowTitle "Mira"
+# with Miro running
+.\scripts\capture-screenshot.ps1 -WindowTitle "Miro"
 ```
 
 Not sure what the window is called? List the open windows:

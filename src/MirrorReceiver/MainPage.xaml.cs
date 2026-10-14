@@ -39,7 +39,7 @@ namespace MirrorReceiver
         private MediaPlayer _mediaPlayer;
         private readonly StringBuilder _log = new StringBuilder();
         private bool _isFullScreen;
-        private string _friendlyName = "Mira";
+        private string _friendlyName = "Miro";
 
         public MainPage()
         {
@@ -138,7 +138,7 @@ namespace MirrorReceiver
             string typed = (NameBox.Text ?? string.Empty).Trim();
             if (typed.Length > 0) return typed;
             // Default to the machine name: that is what users recognise on the phone.
-            try { return Environment.MachineName; } catch { return "Mira"; }
+            try { return Environment.MachineName; } catch { return "Miro"; }
         }
 
         // ------------------------------------------------------------------ //

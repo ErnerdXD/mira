@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Generate the app tile and logo assets for Mira.
+Generate the app tile and logo assets for Miro.
 
 Pure standard library -- no Pillow, no ImageMagick, no external tools. Just
 zlib and struct, so this runs anywhere Python does and the assets stay
@@ -293,10 +293,10 @@ def main() -> int:
 
     print(f"\nWrote {len(jobs)} assets to {out_dir}")
 
-    # --- multi-resolution .ico for Mira.exe ------------------------------- #
+    # --- multi-resolution .ico for Miro.exe ------------------------------- #
     ico_dir = os.path.abspath(os.path.join(here, "..", "app"))
     os.makedirs(ico_dir, exist_ok=True)
-    ico_path = os.path.join(ico_dir, "mira.ico")
+    ico_path = os.path.join(ico_dir, "miro.ico")
 
     # Windows picks the closest size; supply the common shell sizes.
     ico_sizes = [16, 24, 32, 48, 64, 128, 256]

@@ -1,6 +1,6 @@
-# Mira
+# Miro
 
-<img src="src/MirrorReceiver/Assets/Square150x150Logo.png" alt="Mira" width="96">
+<img src="src/MirrorReceiver/Assets/Square150x150Logo.png" alt="Miro" width="96">
 
 A small, open-source **Miracast receiver for Windows**. Mirror an Android phone's
 screen to your PC over Wi-Fi — no cables, no phone app, no account.
@@ -9,7 +9,7 @@ Built on the first-party [`Windows.Media.Miracast`](https://learn.microsoft.com/
 API. Around 300 lines of C#.
 
 ```
-Phone (Cast) ──Wi-Fi Direct / Miracast──▶ Mira ──▶ Your screen
+Phone (Cast) ──Wi-Fi Direct / Miracast──▶ Miro ──▶ Your screen
 ```
 
 ---
@@ -36,7 +36,7 @@ _session.MediaSourceCreated += (session, args) =>
 <!--
 Once docs/screenshot.png exists, delete these comment markers to publish it:
 
-![Mira receiving an Android phone screen](docs/screenshot.png)
+![Miro receiving an Android phone screen](docs/screenshot.png)
 -->
 
 _No screenshot is committed yet. Capture one yourself with the helper script — run
@@ -44,7 +44,7 @@ it while the app is open, and it crops to just the app window rather than grabbi
 your whole desktop:_
 
 ```powershell
-.\scripts\capture-screenshot.ps1 -WindowTitle "Mira"
+.\scripts\capture-screenshot.ps1 -WindowTitle "Miro"
 ```
 
 ## Features
@@ -72,7 +72,7 @@ your whole desktop:_
 
 ## Two ways to use this
 
-**1. `Mira.exe` — a 37 KB desktop app. No SDK, no Visual Studio, no download.**
+**1. `Miro.exe` — a 37 KB desktop app. No SDK, no Visual Studio, no download.**
 
 Build it in about a second:
 
@@ -80,16 +80,16 @@ Build it in about a second:
 .\scripts\build-app.ps1 -Shortcut
 ```
 
-Then double-click `dist\Mira.exe`. It starts Windows' Miracast receiver, shows you
+Then double-click `dist\Miro.exe`. It starts Windows' Miracast receiver, shows you
 whether it's running, walks you through connecting your phone, and sits in the tray.
 
 It is compiled with the C# compiler **already inside Windows**, so there is nothing to
 install.
 
-> **What Mira.exe is and isn't.** Windows only lets a program render mirrored video if
-> it is a packaged UWP app, so a plain desktop app cannot draw the video itself. Mira.exe
+> **What Miro.exe is and isn't.** Windows only lets a program render mirrored video if
+> it is a packaged UWP app, so a plain desktop app cannot draw the video itself. Miro.exe
 > therefore *drives* the receiver Windows already contains rather than replacing it —
-> the video appears in the receiver window, and Mira is your front end for it. It is
+> the video appears in the receiver window, and Miro is your front end for it. It is
 > the useful, tiny option. The full UWP app below is the one that renders video in its
 > own window, and it needs the SDK.
 

@@ -14,7 +14,7 @@
                     PhonePublisherId="00000000-0000-0000-0000-000000000000"/>
 
   <Properties>
-    <DisplayName>Mira</DisplayName>
+    <DisplayName>Miro</DisplayName>
     <PublisherDisplayName>ErnerdXD</PublisherDisplayName>
     <Logo>Assets\StoreLogo.png</Logo>
   </Properties>
@@ -34,7 +34,7 @@
       Executable="$targetnametoken$.exe"
       EntryPoint="MirrorReceiver.App">
       <uap:VisualElements
-        DisplayName="Mira"
+        DisplayName="Miro"
         Square150x150Logo="Assets\Square150x150Logo.png"
         Square44x44Logo="Assets\Square44x44Logo.png"
         Description="Miracast screen mirroring receiver. Mirror your Android phone to your PC over Wi-Fi."

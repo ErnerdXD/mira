@@ -1,7 +1,7 @@
 #Requires -Version 5.1
 <#
 .SYNOPSIS
-    Install the toolchain needed to build and run Mira (a UWP app).
+    Install the toolchain needed to build and run Miro (a UWP app).
 
 .DESCRIPTION
     Installs Visual Studio Community with the "Universal Windows Platform
@@ -172,12 +172,12 @@ Write-Host @"
  2. Set the platform dropdown to x64 (top toolbar).
 
  3. Press F5.
-    Visual Studio builds, deploys and launches Mira automatically.
+    Visual Studio builds, deploys and launches Miro automatically.
 
- 4. Mira now appears in the Start menu. Search "Mira".
+ 4. Miro now appears in the Start menu. Search "Miro".
 
  5. While it is running, capture a screenshot for the README:
-        .\scripts\capture-screenshot.ps1 -WindowTitle "Mira"
+        .\scripts\capture-screenshot.ps1 -WindowTitle "Miro"
 
 ================================================================
 "@ -ForegroundColor White

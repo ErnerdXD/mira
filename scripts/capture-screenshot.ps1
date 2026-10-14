@@ -15,7 +15,7 @@
     .\capture-screenshot.ps1
 
 .EXAMPLE
-    .\capture-screenshot.ps1 -WindowTitle "Mira" -Out ..\docs\screenshot.png
+    .\capture-screenshot.ps1 -WindowTitle "Miro" -Out ..\docs\screenshot.png
 
 .EXAMPLE
     # See what window titles are available
@@ -23,7 +23,7 @@
 #>
 [CmdletBinding()]
 param(
-    [string] $WindowTitle = 'Mira',
+    [string] $WindowTitle = 'Miro',
     [string] $Out = (Join-Path $PSScriptRoot '..\docs\screenshot.png'),
     [int]    $DelaySeconds = 2,
     [switch] $List
