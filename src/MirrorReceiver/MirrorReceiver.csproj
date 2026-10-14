@@ -103,11 +103,13 @@
     <Content Include="Assets\Wide310x150Logo.png" />
   </ItemGroup>
 
-  <ItemGroup>
-    <SDKReference Include="WindowsDesktop, Version=10.0.22621.0">
-      <Name>Windows Desktop Extensions for the UWP</Name>
-    </SDKReference>
-  </ItemGroup>
+  <!--
+    No SDKReference here on purpose. Everything this app uses
+    (Windows.Media.Miracast, Windows.Media.Playback, Windows.UI.Xaml,
+    Windows.UI.ViewManagement) ships in the core UWP contract. Adding
+    WindowsDesktop Extensions would require that SDK to be installed on
+    every build machine and buys nothing.
+  -->
 
   <PropertyGroup Condition=" '$(VisualStudioVersion)' == '' or '$(VisualStudioVersion)' &lt; '14.0' ">
     <VisualStudioVersion>14.0</VisualStudioVersion>

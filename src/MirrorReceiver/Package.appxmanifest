@@ -5,10 +5,9 @@
   xmlns:uap="http://schemas.microsoft.com/appx/manifest/uap/windows10"
   IgnorableNamespaces="uap mp">
 
-  <!-- Replace Name/Publisher with your own before publishing anywhere. -->
   <Identity
-    Name="MirrorReceiver.App"
-    Publisher="CN=MirrorReceiverDev"
+    Name="ErnerdXD.MirrorReceiver"
+    Publisher="CN=ErnerdXD"
     Version="1.0.0.0" />
 
   <mp:PhoneIdentity PhoneProductId="b1e6f0a2-4c3d-4f8e-9a71-2d5c8b0e4f31"

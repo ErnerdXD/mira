@@ -9,43 +9,84 @@ on:
 
 jobs:
   build:
-    # UWP builds require a Windows runner; there is no cross-platform path.
+    # UWP builds need a Windows runner; there is no cross-platform path.
     runs-on: windows-latest
 
     steps:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Add MSBuild to PATH
-        uses: microsoft/setup-msbuild@v2
-
       - name: Setup NuGet
         uses: nuget/setup-nuget@v2
 
-      - name: Report toolchain versions
+      # ------------------------------------------------------------------ #
+      # The UWP XAML targets are resolved relative to the Visual Studio
+      # installation. Using the MSBuild that is merely on PATH often resolves
+      # $(MSBuildExtensionsPath32) to a directory that has no WindowsXaml
+      # folder, which fails the project import instantly (MSB4019).
+      # Resolve MSBuild from the VS installation via vswhere instead.
+      # ------------------------------------------------------------------ #
+      - name: Locate Visual Studio and MSBuild
+        shell: pwsh
         run: |
-          msbuild -version
-          Write-Host "--- Windows SDKs ---"
+          $vswhere = "${env:ProgramFiles(x86)}\Microsoft Visual Studio\Installer\vswhere.exe"
+          if (-not (Test-Path $vswhere)) { throw "vswhere.exe not found at $vswhere" }
+
+          $vsPath = & $vswhere -latest -products * -requires Microsoft.Component.MSBuild -property installationPath
+          if (-not $vsPath) { throw "No Visual Studio installation with the MSBuild component was found." }
+          Write-Host "Visual Studio : $vsPath"
+
+          $msbuild = Join-Path $vsPath 'MSBuild\Current\Bin\MSBuild.exe'
+          if (-not (Test-Path $msbuild)) { throw "MSBuild.exe not found at $msbuild" }
+          Write-Host "MSBuild       : $msbuild"
+
+          "MSBUILD=$msbuild" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
+          "VSPATH=$vsPath"   | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
+
+      - name: Diagnose UWP toolchain
+        shell: pwsh
+        run: |
+          Write-Host "===== Windows SDK versions ====="
           Get-ChildItem 'C:\Program Files (x86)\Windows Kits\10\bin' -Directory -ErrorAction SilentlyContinue |
             Select-Object -ExpandProperty Name
-        shell: pwsh
+
+          Write-Host "`n===== WindowsXaml MSBuild targets (required by UWP) ====="
+          $xaml = Join-Path $env:VSPATH 'MSBuild\Microsoft\WindowsXaml'
+          if (Test-Path $xaml) {
+            Get-ChildItem $xaml -Directory | Select-Object -ExpandProperty Name
+          } else {
+            Write-Host "MISSING: $xaml"
+            Write-Host "=> The UWP workload is NOT installed on this runner."
+          }
+
+          Write-Host "`n===== Installed VS workloads ====="
+          $vswhere = "${env:ProgramFiles(x86)}\Microsoft Visual Studio\Installer\vswhere.exe"
+          & $vswhere -latest -products * -property workloads
+
+          Write-Host "`n===== msbuild -version ====="
+          & $env:MSBUILD -version
 
       - name: Restore
+        shell: pwsh
         run: nuget restore src/MirrorReceiver/MirrorReceiver.csproj
 
       - name: Build (Release, x64)
-        # AppxBundle=Never keeps the runner from needing a signing certificate.
-        # Signing is intentionally disabled: no cert is committed to this repo.
-        run: >
-          msbuild src/MirrorReceiver/MirrorReceiver.csproj
-          /p:Configuration=Release
-          /p:Platform=x64
-          /p:AppxBundle=Never
-          /p:AppxPackageSigningEnabled=false
-          /p:UseDotNetNativeToolchain=false
-          /verbosity:minimal
+        shell: pwsh
+        run: |
+          # Do NOT pin /p:VisualStudioVersion here. The runner's VS major
+          # version changes over time and a wrong pin breaks the WindowsXaml
+          # target import. Let MSBuild resolve it from the installed VS.
+          & $env:MSBUILD src/MirrorReceiver/MirrorReceiver.csproj `
+            /p:Configuration=Release `
+            /p:Platform=x64 `
+            /p:AppxBundle=Never `
+            /p:AppxPackageSigningEnabled=false `
+            /p:UseDotNetNativeToolchain=false `
+            /verbosity:normal
+          if ($LASTEXITCODE -ne 0) { throw "MSBuild failed with exit code $LASTEXITCODE" }
 
       - name: Upload build output
+        if: success()
         uses: actions/upload-artifact@v4
         with:
           name: MirrorReceiver-x64-Release
